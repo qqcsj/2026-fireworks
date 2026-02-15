@@ -12,14 +12,12 @@
             overflow: hidden;
             font-family: 'Microsoft YaHei', sans-serif;
         }
-        #fireworksCanvas {
+        #fireworksCanvas, #textCanvas {
             position: absolute;
-            top: 0; left: 0; z-index: 1;
+            top: 0; left: 0;
         }
-        #textCanvas {
-            position: absolute;
-            top: 0; left: 0; z-index: 10;
-        }
+        #fireworksCanvas { z-index: 1; }
+        #textCanvas { z-index: 10; }
         .start-btn {
             position: absolute;
             top: 50%; left: 50%;
@@ -95,10 +93,8 @@
                 tCtx.fillStyle = this.color; tCtx.fill();
             }
             explode() {
-                this.vx = (Math.random() - 0.5) * 80; 
-                this.vy = (Math.random() - 0.5) * 80;
-                this.tx = this.x + (Math.random() - 0.5) * 2000; 
-                this.ty = this.y + (Math.random() - 0.5) * 2000;
+                this.vx = (Math.random() - 0.5) * 80; this.vy = (Math.random() - 0.5) * 80;
+                this.tx = this.x + (Math.random() - 0.5) * 2000; this.ty = this.y + (Math.random() - 0.5) * 2000;
             }
         }
 
@@ -189,7 +185,7 @@
         }
 
         // ==========================================
-        // 2. 背景特效 (烟花 + 墨字写实孔明灯)
+        // 2. 背景特效 (烟花 + 3D透视毛笔字孔明灯)
         // ==========================================
         const fCanvas = document.getElementById('fireworksCanvas');
         const fCtx = fCanvas.getContext('2d');
@@ -246,19 +242,23 @@
             }
         }
 
-        // 全新：带毛笔字的孔明灯类
+        // 全新：3D透视孔明灯类 (包含长句毛笔字)
         class Lantern {
             constructor() {
                 this.x = Math.random() * fCanvas.width;
-                this.y = fCanvas.height + 80;
+                this.y = fCanvas.height + 100; // 从屏幕最底部还要靠下一点生成
                 
-                // 让尺寸差异更大，模拟空间纵深感 (15 ~ 55)
-                this.width = Math.random() * 40 + 15; 
-                this.height = this.width * 1.4; 
-                this.vx = (Math.random() - 0.5) * 0.3;
+                // 基础尺寸（决定了长宽比，现在更长一点，适应长文字）
+                this.baseWidth = Math.random() * 30 + 20; 
+                this.baseHeight = this.baseWidth * 1.9; 
                 
-                // 大灯飞得慢，小灯飞得快 (视差效果)
-                this.vy = -(Math.random() * 0.8 + 0.5) * (30 / this.width); 
+                // 核心：3D缩放比例！初始很大（离得近），飞高了变小（离得远）
+                this.scale = Math.random() * 0.6 + 0.8; // 初始比例 0.8 ~ 1.4
+                // 衰减速度（控制孔明灯向远处飞走的速度）
+                this.scaleDecay = Math.random() * 0.0015 + 0.0008; 
+                
+                this.vx = (Math.random() - 0.5) * 0.5;
+                this.vy = -(Math.random() * 1.2 + 0.8); // 基础上升速度
                 
                 this.wobble = Math.random() * Math.PI * 2;
                 this.wobbleSpeed = Math.random() * 0.03 + 0.01;
@@ -266,9 +266,13 @@
                 this.flickerSpeed = Math.random() * 0.1 + 0.05;
                 this.flickerState = Math.random() * Math.PI * 2;
 
-                // 核心：只有视角足够近（宽度大于35）的孔明灯才会被写上字
-                if (this.width > 35) {
-                    const blessings = ["平安", "喜乐", "健康", "暴富", "顺遂", "如意", "好运", "发财", "幸福"];
+                // 只有初始尺寸足够大的灯才会被写上祝福语
+                if (this.baseWidth * this.scale > 38) {
+                    const blessings = [
+                        "学业有成", "事业腾飞", "身体健康", "岁岁平安", 
+                        "幸福美满", "国家欣欣向荣", "国泰民安", "前程似锦", 
+                        "万事如意", "快乐无忧", "财源广进"
+                    ];
                     this.text = blessings[Math.floor(Math.random() * blessings.length)];
                 } else {
                     this.text = "";
@@ -276,56 +280,76 @@
             }
             update(index) {
                 this.wobble += this.wobbleSpeed;
-                this.x += this.vx + Math.sin(this.wobble) * 0.3;
-                this.y += this.vy;
+                
+                // 移动时乘上缩放比例，模拟"远处的灯飞得慢"的物理错觉
+                this.x += (this.vx + Math.sin(this.wobble) * 0.4) * this.scale;
+                this.y += this.vy * this.scale;
+                
+                // 核心：每帧缩小，模拟飞向深空
+                this.scale -= this.scaleDecay;
+                
                 this.flickerState += this.flickerSpeed;
-                if (this.y < -this.height) lanterns.splice(index, 1);
+
+                // 如果飞出屏幕上方，或者变得太小看不见了，就销毁它
+                if (this.y < -this.baseHeight * this.scale || this.scale <= 0) {
+                    lanterns.splice(index, 1);
+                }
             }
             draw() {
+                if (this.scale <= 0) return; // 缩小到没了就不画了
+
                 let flickerVal = this.flickerBase + Math.sin(this.flickerState) * 55;
                 let color = `rgba(255, ${flickerVal}, 0, 0.9)`;
 
                 fCtx.save();
                 fCtx.translate(this.x, this.y);
                 
-                // 绘制发光效果
+                // 应用 3D 缩放特效！！！
+                fCtx.scale(this.scale, this.scale); 
+                
+                // 发光特效
                 fCtx.shadowBlur = 30; fCtx.shadowColor = color;
                 
                 // 绘制灯体 (梯形)
                 fCtx.beginPath();
-                fCtx.moveTo(-this.width / 2, -this.height / 2); 
-                fCtx.lineTo(this.width / 2, -this.height / 2);  
-                fCtx.lineTo(this.width * 0.4, this.height / 2); 
-                fCtx.lineTo(-this.width * 0.4, this.height / 2);
+                fCtx.moveTo(-this.baseWidth / 2, -this.baseHeight / 2); 
+                fCtx.lineTo(this.baseWidth / 2, -this.baseHeight / 2);  
+                fCtx.lineTo(this.baseWidth * 0.4, this.baseHeight / 2); 
+                fCtx.lineTo(-this.baseWidth * 0.4, this.baseHeight / 2);
                 fCtx.closePath();
                 
-                // 渐变填充主体，模拟透光的纸张
-                let grad = fCtx.createLinearGradient(0, -this.height/2, 0, this.height/2);
+                // 渐变填充，模拟透光
+                let grad = fCtx.createLinearGradient(0, -this.baseHeight/2, 0, this.baseHeight/2);
                 grad.addColorStop(0, 'rgba(255, 240, 200, 0.8)');
                 grad.addColorStop(1, color);
                 fCtx.fillStyle = grad;
                 fCtx.fill();
 
-                // === 绘制黑色祝福毛笔字 ===
+                // === 绘制动态智能排版的黑色毛笔字 ===
                 if (this.text) {
-                    let fontSize = this.width * 0.35; 
-                    // 优先使用偏传统的字体，类似毛笔字
+                    // 智能字号计算：如果字多，字号就自动变小，保证绝对能塞进灯笼里
+                    let maxFontSizeByHeight = (this.baseHeight * 0.8) / this.text.length;
+                    let fontSize = Math.min(this.baseWidth * 0.35, maxFontSizeByHeight);
+                    
                     fCtx.font = `bold ${fontSize}px "KaiTi", "STKaiti", "Microsoft YaHei"`; 
-                    fCtx.fillStyle = "rgba(0, 0, 0, 0.75)"; // 黑色带一点点透明，像墨水渗入纸张
+                    fCtx.fillStyle = "rgba(0, 0, 0, 0.75)"; 
                     fCtx.textAlign = "center";
                     fCtx.textBaseline = "middle";
-                    fCtx.shadowBlur = 0; // 字体不发光
+                    fCtx.shadowBlur = 0; // 字不需要发光
                     
-                    // 传统灯笼是竖排写字
-                    if (this.text.length === 2) {
-                        fCtx.fillText(this.text[0], 0, -this.height * 0.15); // 上面的字
-                        fCtx.fillText(this.text[1], 0, this.height * 0.15);  // 下面的字
+                    // 竖排排版逻辑：计算起始Y坐标，让整段文字完美居中
+                    let spacing = fontSize * 1.1; // 字间距
+                    let startY = - ((this.text.length - 1) * spacing) / 2;
+                    
+                    // 一个字一个字地画出来
+                    for (let i = 0; i < this.text.length; i++) {
+                        fCtx.fillText(this.text[i], 0, startY + i * spacing);
                     }
                 }
 
-                // 绘制底部明亮发光口
+                // 底部明亮发光口
                 fCtx.beginPath();
-                fCtx.ellipse(0, this.height / 2, this.width * 0.4, this.width * 0.15, 0, 0, Math.PI * 2);
+                fCtx.ellipse(0, this.baseHeight / 2, this.baseWidth * 0.4, this.baseWidth * 0.15, 0, 0, Math.PI * 2);
                 fCtx.fillStyle = color;
                 fCtx.shadowBlur = 15; fCtx.shadowColor = '#ffeb3b'; 
                 fCtx.fill();
@@ -339,8 +363,9 @@
                 fCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
                 fCtx.fillRect(0, 0, fCanvas.width, fCanvas.height);
                 if (Math.random() < 0.05) fireworks.push(new Firework());
-                // 稍微提高一点生成概率，确保画面丰满
-                if (Math.random() < 0.04) lanterns.push(new Lantern());
+                
+                // 稍微提高了一点灯笼的生成率，因为远处的灯会消失
+                if (Math.random() < 0.06) lanterns.push(new Lantern());
 
                 fireworks.forEach((fw, i) => { fw.update(i); fw.draw(); });
                 fwParticles.forEach((p, i) => { p.update(i); p.draw(); });
