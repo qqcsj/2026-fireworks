@@ -23,9 +23,8 @@
     <script>
         const startBtn = document.getElementById('startBtn'), bgMusic = document.getElementById('bgMusic');
         
-        // 核心全局变量：控制灯笼状态与生成
         let isLanternsReleased = false; 
-        let stopSpawningLanterns = false; // 大结局前停止生成新灯笼
+        let stopSpawningLanterns = false; 
 
         startBtn.addEventListener('click', () => {
             startBtn.style.display = 'none'; bgMusic.play(); startBackgroundEffects(); startParticleSequence();
@@ -62,25 +61,40 @@
             for (let y=0;y<h;y+=gap) for(let x=0;x<w;x+=gap) if(data[(y*w+x)*4+3]>128) coords.push({x,y});
             return coords;
         }
-        function changeText(text) {
+        
+        // 【新增参数 isRed】：用于控制最后大结局变为红红火火
+        function changeText(text, isRed = false) {
             let coords = getTextCoordinates(text);
-            if (coords.length > particles.length) for (let i=coords.length-particles.length; i>0; i--) particles.push(new Particle(w/2, h/2));
-            particles.forEach((p, i) => { if(i<coords.length){p.tx=coords[i].x;p.ty=coords[i].y;}else{p.tx=Math.random()*w;p.ty=h+200;} });
+            if (coords.length > particles.length) {
+                let diff = coords.length - particles.length;
+                for (let i = 0; i < diff; i++) { particles.push(new Particle(w/2, h/2)); }
+            }
+            for (let i = 0; i < particles.length; i++) {
+                if (i < coords.length) { 
+                    particles[i].tx = coords[i].x; particles[i].ty = coords[i].y; 
+                    if (isRed) {
+                        // 产生深深浅浅的纯正中国红、金红色
+                        let hue = Math.random() < 0.5 ? (Math.random() * 15) : (345 + Math.random() * 15);
+                        particles[i].color = `hsl(${hue}, 100%, ${Math.random() * 20 + 50}%)`;
+                    }
+                }
+                else { particles[i].tx = Math.random() * w; particles[i].ty = h + 200; }
+            }
         }
         function animateParticles() { tCtx.clearRect(0,0,w,h); particles.forEach(p=>{p.update();p.draw();}); requestAnimationFrame(animateParticles); }
 
-        // === 核心时间轴：智能等待引擎 ===
+        // === 核心时间轴 ===
         function startParticleSequence() {
             animateParticles();
+            // 【调整时间】：倒计时4秒，文字展示6秒
             const sequence = [
-                { text: "3", duration: 1500 }, 
-                { text: "2", duration: 1500 }, 
-                { text: "1", duration: 1500 },
-                { text: "2026\n新年快乐", duration: 3500 }, 
-                { text: "二零二六\n新年到", duration: 3500 },
-                { text: "吉星高照\n福星绕", duration: 3500 }, 
-                { text: "彩色烟花\n满天飘", duration: 3500 },
-                // 标记为 dynamic，意味着它将智能等待，不使用固定时间
+                { text: "3", duration: 4000 }, 
+                { text: "2", duration: 4000 }, 
+                { text: "1", duration: 4000 },
+                { text: "2026\n新年快乐", duration: 6000 }, 
+                { text: "二零二六\n新年到", duration: 6000 },
+                { text: "吉星高照\n福星绕", duration: 6000 }, 
+                { text: "彩色烟花\n满天飘", duration: 6000 },
                 { text: "岁岁平安\n步步高", duration: 'dynamic' }, 
                 { text: "祝大家\n新年胜旧年", duration: 999999 } 
             ];
@@ -89,57 +103,56 @@
             function nextStep() {
                 if (step >= sequence.length) return;
                 
-                // 放飞动作
                 if (step === 3) {
                     isLanternsReleased = true;
                     lanterns.forEach(l => { if(l.state === 'grounded') l.launch(); });
                 }
 
-                // 【高能监控逻辑】：如果到了“岁岁平安”，启动智能等待
+                // 智能等待系统
                 if (sequence[step].duration === 'dynamic') {
-                    stopSpawningLanterns = true; // 停止生成新灯笼
-                    if (step > 0) particles.forEach(p => p.explode()); // 炸掉上一句
+                    stopSpawningLanterns = true; 
+                    if (step > 0) particles.forEach(p => p.explode()); 
                     
                     setTimeout(() => {
-                        changeText(sequence[step].text); // 显示岁岁平安
+                        changeText(sequence[step].text); 
                         step++;
                         
-                        // 智能雷达：不断扫描屏幕上还有没有没缩小的灯笼
                         function waitForAllStars() {
-                            // 筛选出所有还没有变成星星（gathered）的灯笼
                             let remainingLanterns = lanterns.filter(l => l.state !== 'gathered');
                             
                             if (remainingLanterns.length === 0) {
-                                // 完美清空！所有灯笼都变成星星了！发射大结局烟花！
-                                fireworks.push(new GiantFirework());
+                                // 【严格等待 3.5秒】：彻底变成星星后，再等3.5秒寂静时刻
                                 setTimeout(() => {
-                                    particles.forEach(p => p.explode()); // 文字随着大烟花炸裂
+                                    fireworks.push(new GiantFirework());
+                                    // 大烟花升空耗时约 1.5 秒
                                     setTimeout(() => {
-                                        changeText(sequence[step].text); // 重组为“新年胜旧年”
-                                    }, 800);
-                                }, 1500); // 等待大烟花飞到高空的时间
+                                        particles.forEach(p => p.explode()); 
+                                        setTimeout(() => {
+                                            // 【红红火火】：最后一句祝福语开启红色模式
+                                            changeText(sequence[step].text, true); 
+                                        }, 800);
+                                    }, 1500); 
+                                }, 3500);
                             } else {
-                                // 如果还有没变小的，稍微给它们加点速，防止等待过久，继续扫描
+                                // 仅仅做微小兜底，保持缓慢缩小的唯美感
                                 remainingLanterns.forEach(l => {
-                                    l.scaleDecay = Math.max(l.scaleDecay, 0.0035); 
-                                    l.vy = Math.min(l.vy, -2.5); 
+                                    if(l.scaleDecay < 0.001) l.scaleDecay += 0.00002; 
                                 });
-                                requestAnimationFrame(waitForAllStars); // 下一帧继续检查
+                                requestAnimationFrame(waitForAllStars); 
                             }
                         }
-                        waitForAllStars(); // 启动雷达
+                        waitForAllStars(); 
                     }, 800);
-                    return; // 退出常规循环，由雷达接管后续动作
+                    return; 
                 }
 
-                // 常规播放逻辑
                 if (step > 0) particles.forEach(p => p.explode());
                 let pause = step === 0 ? 0 : (step <= 3 ? 1500 : 800);
                 setTimeout(() => {
                     changeText(sequence[step].text); 
                     let dur = sequence[step].duration; 
                     step++;
-                    setTimeout(nextStep, dur); // 停留 3.5 秒后进入下一步
+                    setTimeout(nextStep, dur); 
                 }, pause); 
             }
             nextStep(); 
@@ -150,7 +163,6 @@
         fCanvas.width = window.innerWidth; fCanvas.height = window.innerHeight;
         let fwParticles = [], fireworks = [], lanterns = [];
 
-        // 常规烟花
         class Firework {
             constructor() {
                 this.x=Math.random()*fCanvas.width; this.y=fCanvas.height; this.tx=Math.random()*fCanvas.width; this.ty=Math.random()*(fCanvas.height/2); 
@@ -172,7 +184,8 @@
                 this.tx = fCanvas.width / 2; this.ty = fCanvas.height * 0.25; 
                 this.speed = 8; this.angle = Math.atan2(this.ty - this.y, this.tx - this.x);
                 this.vx = Math.cos(this.angle) * this.speed; this.vy = Math.sin(this.angle) * this.speed;
-                this.color = '#ffeb3b'; this.history = [];
+                this.color = '#FFD700'; // 纯金色升空
+                this.history = [];
             }
             update(i, array) {
                 this.history.push({x:this.x,y:this.y}); if(this.history.length>8)this.history.shift();
@@ -181,8 +194,9 @@
             }
             draw() { fCtx.beginPath();fCtx.moveTo(this.history[0]?.x||this.x,this.history[0]?.y||this.y);fCtx.lineTo(this.x,this.y);fCtx.strokeStyle=this.color;fCtx.lineWidth=6;fCtx.stroke(); }
             explode() {
-                const colors = ['#ff0044', '#00ff88', '#0088ff', '#ffeb3b', '#ff00ff'];
-                for(let i=0;i<350;i++) {
+                // 【高级色彩】：移除杂色，只用纯正的香槟金、大红、亮橙
+                const colors = ['#FFD700', '#FF4500', '#FF0000', '#FFA500'];
+                for(let i=0;i<400;i++) {
                     let c = colors[Math.floor(Math.random() * colors.length)];
                     fwParticles.push(new FwParticle(this.x, this.y, c, true)); 
                 }
@@ -195,13 +209,14 @@
                 let a=Math.random()*Math.PI*2; 
                 let s = isGiant ? Math.random()*15+2 : Math.random()*5+1; 
                 this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;this.alpha=1; 
-                this.decay = isGiant ? Math.random()*0.008+0.005 : Math.random()*0.015+0.015;
+                // 【爆炸时长】：控制在 4 秒左右消失 (decay 控制衰减速度)
+                this.decay = isGiant ? Math.random()*0.003 + 0.002 : Math.random()*0.015+0.015;
             }
             update(i) { this.vx*=0.95;this.vy*=0.95;this.vy+=0.1;this.x+=this.vx;this.y+=this.vy;this.alpha-=this.decay;if(this.alpha<=0)fwParticles.splice(i,1); }
             draw() { fCtx.globalAlpha=this.alpha;fCtx.beginPath();fCtx.arc(this.x,this.y,2,0,Math.PI*2);fCtx.fillStyle=this.color;fCtx.fill();fCtx.globalAlpha=1; }
         }
 
-        // === 强制缩放·孔明灯 ===
+        // === 放慢缩放速度·孔明灯 ===
         class Lantern {
             constructor() {
                 this.baseWidth = Math.random() * 35 + 25; this.baseHeight = this.baseWidth * 1.9; 
@@ -212,11 +227,9 @@
                 const blessings = ["学业有成","事业腾飞","身体健康","岁岁平安","幸福美满","国家欣欣向荣","国泰民安","前程似锦","万事如意","快乐无忧","财源广进","心想事成","吉星高照","五福临门","家和万事兴","未来可期","平安喜乐","一夜暴富","好运爆棚","金榜题名"];
                 this.text = this.baseWidth>30 ? blessings[Math.floor(Math.random()*blessings.length)] : "";
 
-                // 底部潜伏状态
                 if (!isLanternsReleased) {
                     this.state = 'grounded';
                     this.x = Math.random() * fCanvas.width;
-                    // 保留底部发光的神秘感，顶部稍露边缘
                     this.y = fCanvas.height + this.baseHeight * 0.4 + Math.random() * 15;
                     this.scale = Math.random() * 0.3 + 0.9; 
                     this.vy = 0;
@@ -228,8 +241,9 @@
             }
             launch() {
                 this.state = 'rising';
-                this.vy = -(Math.random() * 0.6 + 0.4); 
-                this.scaleDecay = Math.random() * 0.001 + 0.0005;
+                this.vy = -(Math.random() * 0.5 + 0.3); 
+                // 【放慢变小速度】：孔明灯会在空中飘浮更久
+                this.scaleDecay = Math.random() * 0.0005 + 0.0003; 
             }
             update(index) {
                 this.wobble += this.wobbleSpeed; this.flickerState += this.flickerSpeed;
@@ -240,19 +254,17 @@
                 } else if (this.state === 'rising') {
                     this.x += (this.vx + Math.sin(this.wobble)*0.4) * this.scale;
                     this.y += this.vy * this.scale;
-                    this.scale -= this.scaleDecay; // 强制变小
+                    this.scale -= this.scaleDecay; 
                     
                     let targetSkyHeight = fCanvas.height * (0.05 + Math.random() * 0.2);
-                    // 无论在哪，只要缩得足够小（0.06），就强制变为星星
                     if ((this.y < targetSkyHeight && this.scale < 0.25) || this.scale <= 0.06) {
                         this.state = 'gathered'; 
                     }
                 } else if (this.state === 'gathered') {
-                    // 星星状态：强制继续缩小到点状
                     if (this.scale > 0.06) {
                         this.scale -= 0.001; 
                     } else {
-                        this.scale = 0.06; // 锁定最终星辰尺寸
+                        this.scale = 0.06; 
                     }
                     this.x += Math.sin(this.wobble)*0.05 * this.scale;
                     this.y += Math.cos(this.wobble*0.8)*0.05 * this.scale;
@@ -289,7 +301,6 @@
                 
                 if(Math.random()<0.05) fireworks.push(new Firework());
                 
-                // 大结局前不断补货，大结局到了就彻底停止生成新灯笼
                 if(isLanternsReleased && !stopSpawningLanterns && Math.random()<0.08 && lanterns.length<250) {
                     lanterns.push(new Lantern());
                 }
