@@ -65,58 +65,116 @@
         }
         function animateParticles() { tCtx.clearRect(0,0,w,h); particles.forEach(p=>{p.update();p.draw();}); requestAnimationFrame(animateParticles); }
 
-        // === 时间轴控制 ===
+        // === 大结局时间轴控制 ===
         function startParticleSequence() {
             animateParticles();
             const sequence = [
                 { text: "3", duration: 1500 }, { text: "2", duration: 1500 }, { text: "1", duration: 1500 },
-                { text: "2026\n新年快乐", duration: 4000 }, { text: "二零二六\n新年到", duration: 3500 },
-                { text: "吉星高照\n福星绕", duration: 3500 }, { text: "彩色烟花\n满天飘", duration: 3500 },
-                { text: "岁岁平安\n步步高", duration: 999999 } 
+                { text: "2026\n新年快乐", duration: 4000 }, 
+                { text: "二零二六\n新年到", duration: 4500 }, // 延长了停留时间
+                { text: "吉星高照\n福星绕", duration: 4500 }, 
+                { text: "彩色烟花\n满天飘", duration: 4500 },
+                { text: "岁岁平安\n步步高", duration: 8000 }, // 停留8秒，等待孔明灯化作星河
+                { text: "祝大家\n新年胜旧年", duration: 999999 } 
             ];
             let step = 0;
             function nextStep() {
                 if (step >= sequence.length) return;
-                // 【第二幕触发】：显示“新年快乐”时，释放孔明灯
+                
+                // 放飞孔明灯
                 if (step === 3) {
                     isLanternsReleased = true;
                     lanterns.forEach(l => { if(l.state === 'grounded') l.launch(); });
                 }
+
+                // 【高能大结局】：从“岁岁平安”过渡到“新年胜旧年”
+                if (step === 8) {
+                    // 发射超级大烟花
+                    fireworks.push(new GiantFirework());
+                    
+                    // 等待超级大烟花升空并爆炸 (约1.5秒后)
+                    setTimeout(() => {
+                        particles.forEach(p => p.explode()); // 文字配合烟花同时炸开
+                        
+                        // 炸开后稍作停顿，重组出最终祝福语
+                        setTimeout(() => {
+                            changeText(sequence[step].text);
+                        }, 800);
+                    }, 1500);
+                    return; // 时间轴到此结束，最终画面永驻
+                }
+
                 if (step > 0) particles.forEach(p => p.explode());
-                let pause = step === 0 ? 0 : (step <= 3 ? 1500 : 600);
+                let pause = step === 0 ? 0 : (step <= 3 ? 1500 : 800);
                 setTimeout(() => {
                     changeText(sequence[step].text); let dur = sequence[step].duration; step++;
-                    if (step < sequence.length) setTimeout(nextStep, dur);
+                    setTimeout(nextStep, dur);
                 }, pause); 
             }
             nextStep(); 
         }
 
-        // ==================== 背景特效 (烟花 + 智能孔明灯) ====================
+        // ==================== 背景特效 (常规烟花 + 超级大烟花 + 智能孔明灯) ====================
         const fCanvas = document.getElementById('fireworksCanvas'), fCtx = fCanvas.getContext('2d');
         fCanvas.width = window.innerWidth; fCanvas.height = window.innerHeight;
         let fwParticles = [], fireworks = [], lanterns = [];
 
+        // 常规烟花类
         class Firework {
             constructor() {
                 this.x=Math.random()*fCanvas.width; this.y=fCanvas.height; this.tx=Math.random()*fCanvas.width; this.ty=Math.random()*(fCanvas.height/2); 
                 this.speed=Math.random()*3+4; this.angle=Math.atan2(this.ty-this.y,this.tx-this.x);
                 this.vx=Math.cos(this.angle)*this.speed; this.vy=Math.sin(this.angle)*this.speed; this.color=`hsl(${Math.random()*360},100%,60%)`; this.history=[];
             }
-            update(i) {
+            update(i, array) {
                 this.history.push({x:this.x,y:this.y}); if(this.history.length>5)this.history.shift();
-                this.x+=this.vx; this.y+=this.vy; if(this.vy>=0||this.y<=this.ty){fireworks.splice(i,1);this.explode();}
+                this.x+=this.vx; this.y+=this.vy; if(this.vy>=0||this.y<=this.ty){ array.splice(i,1); this.explode(); }
             }
             draw() { fCtx.beginPath();fCtx.moveTo(this.history[0]?.x||this.x,this.history[0]?.y||this.y);fCtx.lineTo(this.x,this.y);fCtx.strokeStyle=this.color;fCtx.lineWidth=3;fCtx.stroke(); }
             explode() { for(let i=0;i<Math.random()*50+50;i++) fwParticles.push(new FwParticle(this.x,this.y,this.color)); }
         }
+        
+        // 【新增】：超级核爆大烟花类 (仅在大结局触发)
+        class GiantFirework {
+            constructor() {
+                this.x = fCanvas.width / 2; this.y = fCanvas.height; 
+                this.tx = fCanvas.width / 2; this.ty = fCanvas.height * 0.25; // 飞到屏幕偏上方
+                this.speed = 8; this.angle = Math.atan2(this.ty - this.y, this.tx - this.x);
+                this.vx = Math.cos(this.angle) * this.speed; this.vy = Math.sin(this.angle) * this.speed;
+                this.color = '#ffeb3b'; // 金色升空轨迹
+                this.history = [];
+            }
+            update(i, array) {
+                this.history.push({x:this.x,y:this.y}); if(this.history.length>8)this.history.shift();
+                this.x+=this.vx; this.y+=this.vy; 
+                if(this.vy>=0||this.y<=this.ty){ array.splice(i,1); this.explode(); }
+            }
+            draw() { fCtx.beginPath();fCtx.moveTo(this.history[0]?.x||this.x,this.history[0]?.y||this.y);fCtx.lineTo(this.x,this.y);fCtx.strokeStyle=this.color;fCtx.lineWidth=6;fCtx.stroke(); }
+            explode() {
+                // 爆炸产生 300+ 颗持久的彩色粒子，形成巨大光环
+                const colors = ['#ff0044', '#00ff88', '#0088ff', '#ffeb3b', '#ff00ff'];
+                for(let i=0;i<350;i++) {
+                    let c = colors[Math.floor(Math.random() * colors.length)];
+                    fwParticles.push(new FwParticle(this.x, this.y, c, true)); // 传入 true 代表是大烟花粒子
+                }
+            }
+        }
+
         class FwParticle {
-            constructor(x,y,c) { this.x=x;this.y=y;this.color=c;let a=Math.random()*Math.PI*2,s=Math.random()*5+1;this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;this.alpha=1; }
-            update(i) { this.vx*=0.95;this.vy*=0.95;this.vy+=0.1;this.x+=this.vx;this.y+=this.vy;this.alpha-=Math.random()*0.015+0.015;if(this.alpha<=0)fwParticles.splice(i,1); }
+            constructor(x,y,c, isGiant = false) { 
+                this.x=x;this.y=y;this.color=c;
+                let a=Math.random()*Math.PI*2; 
+                // 大烟花粒子飞得更快更远
+                let s = isGiant ? Math.random()*15+2 : Math.random()*5+1; 
+                this.vx=Math.cos(a)*s;this.vy=Math.sin(a)*s;this.alpha=1; 
+                // 大烟花粒子衰减得更慢，停留时间更长
+                this.decay = isGiant ? Math.random()*0.008+0.005 : Math.random()*0.015+0.015;
+            }
+            update(i) { this.vx*=0.95;this.vy*=0.95;this.vy+=0.1;this.x+=this.vx;this.y+=this.vy;this.alpha-=this.decay;if(this.alpha<=0)fwParticles.splice(i,1); }
             draw() { fCtx.globalAlpha=this.alpha;fCtx.beginPath();fCtx.arc(this.x,this.y,2,0,Math.PI*2);fCtx.fillStyle=this.color;fCtx.fill();fCtx.globalAlpha=1; }
         }
 
-        // === 全新：智能状态孔明灯 ===
+        // === 智能状态孔明灯 ===
         class Lantern {
             constructor() {
                 this.baseWidth = Math.random() * 35 + 25; this.baseHeight = this.baseWidth * 1.9; 
@@ -127,48 +185,49 @@
                 const blessings = ["学业有成","事业腾飞","身体健康","岁岁平安","幸福美满","国家欣欣向荣","国泰民安","前程似锦","万事如意","快乐无忧","财源广进","心想事成","吉星高照","五福临门","家和万事兴","未来可期","平安喜乐","一夜暴富","好运爆棚","金榜题名"];
                 this.text = this.baseWidth>30 ? blessings[Math.floor(Math.random()*blessings.length)] : "";
 
-                // 【第一幕状态】：蛰伏在底部
+                // 【第一幕状态】：神秘漏光蛰伏
                 if (!isLanternsReleased) {
                     this.state = 'grounded';
                     this.x = Math.random() * fCanvas.width;
-                    // 关键：位置极低，只露出顶部光晕
-                    this.y = fCanvas.height + this.baseHeight * 0.6 + Math.random() * 30;
-                    this.scale = Math.random() * 0.3 + 0.9; // 初始有大有小
+                    // 精确计算：放在屏幕底端偏下，只露出巨大的光晕和最顶部的一点点边缘，看不到完整灯体和字
+                    this.y = fCanvas.height + this.baseHeight * 0.4 + Math.random() * 15;
+                    this.scale = Math.random() * 0.3 + 0.9; 
                     this.vy = 0;
                 } else {
-                    // 后续生成的直接起飞
+                    // 后续生成的正常起飞
                     this.state = 'rising';
                     this.x = Math.random() * fCanvas.width; this.y = fCanvas.height + 50;
                     this.scale = 1; this.launch();
                 }
             }
-            // 【第二幕触发动作】：起飞
             launch() {
                 this.state = 'rising';
-                this.vy = -(Math.random() * 0.6 + 0.4); // 缓慢升起
+                this.vy = -(Math.random() * 0.6 + 0.4); 
                 this.scaleDecay = Math.random() * 0.001 + 0.0005;
             }
             update(index) {
                 this.wobble += this.wobbleSpeed; this.flickerState += this.flickerSpeed;
                 
                 if (this.state === 'grounded') {
-                    // 蛰伏态：在底部轻微晃动
+                    // 蛰伏态：在底部轻微晃动，漏出神秘光晕
                     this.x += this.vx + Math.sin(this.wobble)*0.1;
-                    this.y = fCanvas.height + this.baseHeight*0.6 + Math.sin(this.wobble*0.7)*5;
+                    this.y = fCanvas.height + this.baseHeight*0.4 + Math.sin(this.wobble*0.7)*5;
                 } else if (this.state === 'rising') {
                     // 上升态：飘升并变小
                     this.x += (this.vx + Math.sin(this.wobble)*0.4) * this.scale;
                     this.y += this.vy * this.scale;
                     this.scale -= this.scaleDecay;
-                    // 【第三幕触发】：到达顶部聚集区（屏幕上1/3），变成星星
-                    if (this.y < fCanvas.height * 0.3 && this.scale < 0.25) {
-                        if(Math.random() > 0.15) this.state = 'gathered'; // 大部分聚集
+                    
+                    // 【自然星河】：到达屏幕上方随机高度（顶部25%区域内）化作星辰
+                    let targetSkyHeight = fCanvas.height * (0.05 + Math.random() * 0.2);
+                    if (this.y < targetSkyHeight && this.scale < 0.25) {
+                        this.state = 'gathered'; 
                     }
-                    if (this.scale <= 0.05) this.state = 'gathered'; // 过小强制聚集
+                    if (this.scale <= 0.05) this.state = 'gathered'; 
                 } else if (this.state === 'gathered') {
-                    // 星星态：在高空极缓慢漂浮
-                    this.x += Math.sin(this.wobble)*0.1 * this.scale;
-                    this.y += Math.cos(this.wobble*0.8)*0.1 * this.scale;
+                    // 星星态：在高空极缓慢漂浮，自然散落
+                    this.x += Math.sin(this.wobble)*0.05 * this.scale;
+                    this.y += Math.cos(this.wobble*0.8)*0.05 * this.scale;
                 }
             }
             draw() {
@@ -177,7 +236,6 @@
                 let cRgb = `${255},${Math.min(255,fVal+10)},${Math.max(0,fVal-100)}`;
                 fCtx.save(); fCtx.translate(this.x, this.y); fCtx.scale(this.scale, this.scale);
                 
-                // 绘制烛光（核心光晕）
                 let grad = fCtx.createRadialGradient(0, this.baseHeight*0.35, 0, 0, 0, this.baseHeight*0.9);
                 grad.addColorStop(0, `rgba(255,255,220,${0.95*this.candleIntensity})`);
                 grad.addColorStop(0.5, `rgba(${cRgb},${0.85*this.candleIntensity})`);
@@ -185,27 +243,29 @@
                 fCtx.fillStyle = grad;
                 fCtx.beginPath(); fCtx.moveTo(-this.baseWidth/2,-this.baseHeight*0.45);fCtx.lineTo(this.baseWidth/2,-this.baseHeight*0.45);fCtx.lineTo(this.baseWidth*0.42,this.baseHeight/2);fCtx.lineTo(-this.baseWidth*0.42,this.baseHeight/2);fCtx.closePath();fCtx.fill();
 
-                // 仅在足够大且处于上升态时显示文字
                 if (this.text && this.scale > 0.35 && this.state === 'rising') {
                     let fs = Math.min(this.baseWidth*0.38, (this.baseHeight*0.8)/this.text.length);
                     fCtx.font = `bold ${fs}px "KaiTi","STKaiti","Microsoft YaHei"`; fCtx.fillStyle = "rgba(20,10,0,0.85)"; fCtx.textAlign="center"; fCtx.textBaseline="middle";
                     for(let i=0;i<this.text.length;i++) fCtx.fillText(this.text[i], 0, -((this.text.length-1)*fs*1.1)/2 + i*fs*1.1);
                 }
-                // 底部光口
+                
                 fCtx.beginPath(); fCtx.ellipse(0, this.baseHeight/2, this.baseWidth*0.42, this.baseWidth*0.12, 0, 0, Math.PI*2);
-                fCtx.fillStyle = `rgba(${cRgb},0.95)`; fCtx.shadowBlur=25;fCtx.shadowColor='rgba(255,200,50,0.8)';fCtx.fill();fCtx.restore();
+                fCtx.fillStyle = `rgba(${cRgb},0.95)`; fCtx.shadowBlur=30;fCtx.shadowColor='rgba(255,180,50,0.9)';fCtx.fill();fCtx.restore();
             }
         }
 
         function startBackgroundEffects() {
-            // 【第一幕准备】：预先生成一大批蛰伏底部的灯
-            for(let i=0;i<80;i++) lanterns.push(new Lantern());
+            // 预先生成一大批蛰伏底部的灯，制造满屏底部的神秘光晕
+            for(let i=0;i<100;i++) lanterns.push(new Lantern());
             function loop() {
                 fCtx.fillStyle = 'rgba(0,0,0,0.2)'; fCtx.fillRect(0,0,fCanvas.width,fCanvas.height);
+                // 常规烟花随机绽放
                 if(Math.random()<0.05) fireworks.push(new Firework());
-                // 放飞后持续补货，维持星空密度
-                if(isLanternsReleased && Math.random()<0.1 && lanterns.length<250) lanterns.push(new Lantern());
-                fireworks.forEach((f,i)=>f.update(i)); fireworks.forEach(f=>f.draw());
+                
+                if(isLanternsReleased && Math.random()<0.08 && lanterns.length<250) lanterns.push(new Lantern());
+                
+                // 注意这里把 fireworks 数组传进去，方便大烟花/小烟花统一管理爆炸逻辑
+                fireworks.forEach((f,i)=>f.update(i, fireworks)); fireworks.forEach(f=>f.draw());
                 fwParticles.forEach((p,i)=>p.update(i)); fwParticles.forEach(p=>p.draw());
                 lanterns.forEach((l,i)=>l.update(i)); lanterns.forEach(l=>l.draw());
                 requestAnimationFrame(loop);
