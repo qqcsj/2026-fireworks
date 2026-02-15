@@ -40,6 +40,10 @@
     <script>
         const startBtn = document.getElementById('startBtn');
         const bgMusic = document.getElementById('bgMusic');
+        
+        // 【新增】全局状态变量：孔明灯是否已经放飞
+        let isLanternsReleased = false; 
+
         startBtn.addEventListener('click', () => {
             startBtn.style.display = 'none';
             bgMusic.play();
@@ -47,7 +51,7 @@
             startParticleSequence();
         });
 
-        // ==================== 1. 粒子文字系统 (保持不变) ====================
+        // ==================== 1. 粒子文字系统 ====================
         const tCanvas = document.getElementById('textCanvas');
         const tCtx = tCanvas.getContext('2d', { willReadFrequently: true });
         let w = tCanvas.width = window.innerWidth;
@@ -56,6 +60,7 @@
             w = tCanvas.width = window.innerWidth;
             h = tCanvas.height = window.innerHeight;
         });
+        
         let particles = [];
         class Particle {
             constructor(x, y) {
@@ -78,6 +83,7 @@
                 this.tx = this.x + (Math.random() - 0.5) * 2000; this.ty = this.y + (Math.random() - 0.5) * 2000;
             }
         }
+        
         function getTextCoordinates(text) {
             let offscreen = document.createElement('canvas');
             offscreen.width = w; offscreen.height = h;
@@ -102,6 +108,7 @@
             }
             return coordinates;
         }
+        
         function changeText(text) {
             let coords = getTextCoordinates(text);
             if (coords.length > particles.length) {
@@ -113,33 +120,57 @@
                 else { particles[i].tx = Math.random() * w; particles[i].ty = h + 200; }
             }
         }
+        
         function explodeAll() { particles.forEach(p => p.explode()); }
+        
         function animateParticles() {
             tCtx.clearRect(0, 0, w, h); particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animateParticles);
         }
+
+        // === 核心时间轴修改：触发放飞事件 ===
         function startParticleSequence() {
             animateParticles();
             const sequence = [
-                { text: "3", duration: 1500 }, { text: "2", duration: 1500 }, { text: "1", duration: 1500 },
-                { text: "2026\n新年快乐", duration: 4000 }, { text: "二零二六\n新年到", duration: 3500 },
-                { text: "吉星高照\n福星绕", duration: 3500 }, { text: "彩色烟花\n满天飘", duration: 3500 },
+                { text: "3", duration: 1500 }, 
+                { text: "2", duration: 1500 }, 
+                { text: "1", duration: 1500 },
+                { text: "2026\n新年快乐", duration: 4000 }, 
+                { text: "二零二六\n新年到", duration: 3500 },
+                { text: "吉星高照\n福星绕", duration: 3500 }, 
+                { text: "彩色烟花\n满天飘", duration: 3500 },
                 { text: "岁岁平安\n步步高", duration: 999999 } 
             ];
             let step = 0;
+            
             function nextStep() {
                 if (step >= sequence.length) return;
+                
+                // 【核心联动】：当显示到 "2026新年快乐" (step === 3) 时，全屏孔明灯解锁放飞！
+                if (step === 3) {
+                    isLanternsReleased = true;
+                    lanterns.forEach(l => {
+                        // 赋予每个人手中孔明灯向上的力量
+                        l.vy = -(Math.random() * 1.5 + 0.8); 
+                        l.scaleDecay = Math.random() * 0.0015 + 0.0008;
+                    });
+                }
+
                 if (step > 0) explodeAll();
-                let isCountdown = step <= 3; let pauseTime = step === 0 ? 0 : (isCountdown ? 1500 : 600);
+                let isCountdown = step <= 3; 
+                let pauseTime = step === 0 ? 0 : (isCountdown ? 1500 : 600);
+                
                 setTimeout(() => {
-                    changeText(sequence[step].text); let currentDuration = sequence[step].duration; step++;
+                    changeText(sequence[step].text); 
+                    let currentDuration = sequence[step].duration; 
+                    step++;
                     if (step < sequence.length) setTimeout(nextStep, currentDuration);
                 }, pauseTime); 
             }
             nextStep(); 
         }
 
-        // ==================== 2. 背景特效 (烟花 + 真实烛光孔明灯) ====================
+        // ==================== 2. 背景特效 (烟花 + 高级孔明灯物理引擎) ====================
         const fCanvas = document.getElementById('fireworksCanvas');
         const fCtx = fCanvas.getContext('2d');
         fCanvas.width = window.innerWidth; fCanvas.height = window.innerHeight;
@@ -169,6 +200,7 @@
                 for (let i = 0; i < count; i++) fwParticles.push(new FwParticle(this.x, this.y, this.color));
             }
         }
+        
         class FwParticle {
             constructor(x, y, color) {
                 this.x = x; this.y = y; this.color = color;
@@ -183,32 +215,40 @@
             draw() { fCtx.globalAlpha = this.alpha; fCtx.beginPath(); fCtx.arc(this.x, this.y, 2, 0, Math.PI * 2); fCtx.fillStyle = this.color; fCtx.fill(); fCtx.globalAlpha = 1; }
         }
 
-        // 全新：真实烛光孔明灯类
+        // ================= 全新：带飞行状态的智能孔明灯 =================
         class Lantern {
             constructor() {
-                this.x = Math.random() * fCanvas.width;
-                this.y = fCanvas.height + 120; 
                 this.baseWidth = Math.random() * 30 + 20; 
                 this.baseHeight = this.baseWidth * 1.9; 
-                this.scale = Math.random() * 0.6 + 0.8; 
-                this.scaleDecay = Math.random() * 0.0015 + 0.0008; 
+                this.scale = Math.random() * 0.5 + 0.8; 
                 
-                // [修改点] 大幅降低初始上升速度，让起步更缓慢优雅
-                this.vy = -(Math.random() * 0.8 + 0.5); 
-                this.vx = (Math.random() - 0.5) * 0.5;
+                // 【新增】天空最小极限尺寸，到达这个尺寸后就不再变小，化作星辰
+                this.minScale = Math.random() * 0.05 + 0.06; 
 
+                // 初始生成位置和速度分配
+                if (!isLanternsReleased) {
+                    // 放飞前：聚集在屏幕中下部，模拟人们捧在手里
+                    this.x = Math.random() * fCanvas.width;
+                    this.y = fCanvas.height - 50 - Math.random() * (fCanvas.height * 0.35); 
+                    this.vy = 0; // 不向上飞
+                    this.scaleDecay = 0; // 不变小
+                } else {
+                    // 放飞后：从底部正常生成并起飞
+                    this.x = Math.random() * fCanvas.width;
+                    this.y = fCanvas.height + 50; 
+                    this.vy = -(Math.random() * 0.8 + 0.5); 
+                    this.scaleDecay = Math.random() * 0.0015 + 0.0008; 
+                }
+
+                this.vx = (Math.random() - 0.5) * 0.5;
                 this.wobble = Math.random() * Math.PI * 2;
                 this.wobbleSpeed = Math.random() * 0.03 + 0.01;
-                // 烛光闪烁基础值
                 this.flickerBase = Math.random() > 0.5 ? 240 : 210; 
                 this.flickerSpeed = Math.random() * 0.1 + 0.05;
                 this.flickerState = Math.random() * Math.PI * 2;
-                
-                // [新增] 每个灯笼独立的烛光强度系数 (0.7 ~ 1.1)
                 this.candleIntensity = Math.random() * 0.4 + 0.7;
 
-                if (this.baseWidth * this.scale > 38) {
-                    // [新增] 海量祝福语库
+                if (this.baseWidth * this.scale > 35) {
                     const blessings = [
                         "学业有成", "事业腾飞", "身体健康", "岁岁平安", 
                         "幸福美满", "国家欣欣向荣", "国泰民安", "前程似锦", 
@@ -219,31 +259,47 @@
                     this.text = blessings[Math.floor(Math.random() * blessings.length)];
                 } else { this.text = ""; }
             }
+            
             update(index) {
                 this.wobble += this.wobbleSpeed;
                 this.x += (this.vx + Math.sin(this.wobble) * 0.4) * this.scale;
-                this.y += this.vy * this.scale;
-                this.scale -= this.scaleDecay;
                 this.flickerState += this.flickerSpeed;
-                if (this.y < -this.baseHeight * this.scale || this.scale <= 0) { lanterns.splice(index, 1); }
+
+                if (isLanternsReleased) {
+                    // 放飞后，向上飘并变小
+                    this.y += this.vy * this.scale;
+                    
+                    if (this.scale > this.minScale) {
+                        // 还在变小
+                        this.scale -= this.scaleDecay;
+                    } else {
+                        // 【核心】：已经到达极高空，变为繁星
+                        this.scale = this.minScale;
+                        this.vy *= 0.98; // 垂直速度趋近于 0（悬停效果）
+                        if (this.vy > -0.05) this.vy = -0.05; // 保持极缓慢的移动，避免绝对静止死板
+                        
+                        // 【性能控制】：天空中超过 120 盏灯时，极高空最小的灯才有极小概率消失
+                        if (lanterns.length > 120 && Math.random() < 0.002) {
+                            lanterns.splice(index, 1);
+                        }
+                    }
+                } else {
+                    // 放飞前，仅仅在原地微微上下浮动（模拟人呼吸/手的晃动）
+                    this.y += Math.sin(this.wobble) * 0.2;
+                }
             }
+            
             draw() {
                 if (this.scale <= 0) return;
                 
-                // 计算烛光颜色变化
                 let flickerVal = this.flickerBase + Math.sin(this.flickerState) * 40;
-                // 核心颜色：偏暖黄/橙
                 let mainColorRgb = `${255}, ${Math.min(255, flickerVal + 10)}, ${Math.max(0, flickerVal - 100)}`;
                 let baseColor = `rgba(${mainColorRgb}, 0.95)`;
 
                 fCtx.save();
                 fCtx.translate(this.x, this.y);
                 fCtx.scale(this.scale, this.scale); 
-                
-                // [核心修改] 移除了外部的 shadowBlur 光晕
-                // fCtx.shadowBlur = 30; fCtx.shadowColor = color; <-- 已删除
 
-                // 绘制灯体路径
                 fCtx.beginPath();
                 fCtx.moveTo(-this.baseWidth / 2, -this.baseHeight * 0.45); 
                 fCtx.lineTo(this.baseWidth / 2, -this.baseHeight * 0.45);  
@@ -251,28 +307,22 @@
                 fCtx.lineTo(-this.baseWidth * 0.42, this.baseHeight / 2);
                 fCtx.closePath();
                 
-                // [核心修改] 使用径向渐变模拟内部烛光透射效果
-                // 光源在底部中心，向四周扩散
                 let lightGrad = fCtx.createRadialGradient(
-                    0, this.baseHeight * 0.35, 0, // 内圆（光源点）
-                    0, 0, this.baseHeight * 0.9    // 外圆（扩散边界）
+                    0, this.baseHeight * 0.35, 0, 
+                    0, 0, this.baseHeight * 0.9    
                 );
-                // 内部核心：明亮的暖白光，强度受 candleIntensity 影响
                 lightGrad.addColorStop(0, `rgba(255, 255, 220, ${0.95 * this.candleIntensity})`);
-                // 中间：温暖的橙黄色纸张光
                 lightGrad.addColorStop(0.5, `rgba(${mainColorRgb}, ${0.85 * this.candleIntensity})`);
-                // 边缘：光线变弱，纸张颜色变深
                 lightGrad.addColorStop(1, `rgba(${mainColorRgb.split(',')[0]}, ${mainColorRgb.split(',')[1]}, 60, ${0.6 * this.candleIntensity})`);
                 
                 fCtx.fillStyle = lightGrad;
                 fCtx.fill();
 
-                // 绘制文字
-                if (this.text) {
+                // 只有孔明灯还比较大（离得近）的时候才渲染文字，节省性能且符合物理常识
+                if (this.text && this.scale > 0.3) {
                     let maxFontSizeByHeight = (this.baseHeight * 0.8) / this.text.length;
                     let fontSize = Math.min(this.baseWidth * 0.38, maxFontSizeByHeight);
                     fCtx.font = `bold ${fontSize}px "KaiTi", "STKaiti", "Microsoft YaHei"`; 
-                    // 文字颜色加深，对比度更高
                     fCtx.fillStyle = "rgba(20, 10, 0, 0.85)"; 
                     fCtx.textAlign = "center"; fCtx.textBaseline = "middle";
                     let spacing = fontSize * 1.1; 
@@ -282,28 +332,42 @@
                     }
                 }
 
-                // 绘制底部环（光源口）
                 fCtx.beginPath();
                 fCtx.ellipse(0, this.baseHeight / 2, this.baseWidth * 0.42, this.baseWidth * 0.12, 0, 0, Math.PI * 2);
-                fCtx.fillStyle = baseColor; // 使用实体颜色
-                // 仅在底部保留一点点烛光溢出的光晕
+                fCtx.fillStyle = baseColor; 
                 fCtx.shadowBlur = 25; fCtx.shadowColor = 'rgba(255, 200, 50, 0.8)'; 
                 fCtx.fill();
-                fCtx.shadowBlur = 0; // 重置
+                fCtx.shadowBlur = 0; 
 
                 fCtx.restore();
             }
         }
 
         function startBackgroundEffects() {
+            // 【提前入场】：在网页一打开时，预先在底部生成一批等待放飞的孔明灯
+            for(let i = 0; i < 40; i++) {
+                lanterns.push(new Lantern());
+            }
+
             function loop() {
                 fCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
                 fCtx.fillRect(0, 0, fCanvas.width, fCanvas.height);
+                
                 if (Math.random() < 0.05) fireworks.push(new Firework());
-                if (Math.random() < 0.06) lanterns.push(new Lantern());
+                
+                // 智能生成控制：根据是否放飞，控制屏幕上的灯笼数量
+                if (!isLanternsReleased) {
+                    // 放飞前，保持屏幕下半部有 80 盏左右的灯等待
+                    if (Math.random() < 0.1 && lanterns.length < 80) lanterns.push(new Lantern());
+                } else {
+                    // 放飞后，不断从底部生成新的，填补升空的灯笼，维持高空繁星
+                    if (Math.random() < 0.08 && lanterns.length < 150) lanterns.push(new Lantern());
+                }
+
                 fireworks.forEach((fw, i) => { fw.update(i); fw.draw(); });
                 fwParticles.forEach((p, i) => { p.update(i); p.draw(); });
                 lanterns.forEach((l, i) => { l.update(i); l.draw(); }); 
+                
                 requestAnimationFrame(loop);
             }
             loop();
