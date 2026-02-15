@@ -61,7 +61,7 @@
         });
 
         // ==========================================
-        // 1. 粒子文字系统
+        // 1. 高清粒子文字聚合与爆炸系统
         // ==========================================
         const tCanvas = document.getElementById('textCanvas');
         const tCtx = tCanvas.getContext('2d', { willReadFrequently: true });
@@ -77,8 +77,7 @@
         
         class Particle {
             constructor(x, y) {
-                this.x = Math.random() * w;
-                this.y = Math.random() * h;
+                this.x = Math.random() * w; this.y = Math.random() * h;
                 this.tx = x; this.ty = y; 
                 this.r = Math.random() * 1.5 + 1;
                 this.color = `hsl(${Math.random() * 360}, 100%, 75%)`; 
@@ -92,8 +91,7 @@
                 this.x += this.vx; this.y += this.vy;
             }
             draw() {
-                tCtx.beginPath();
-                tCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                tCtx.beginPath(); tCtx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
                 tCtx.fillStyle = this.color; tCtx.fill();
             }
             explode() {
@@ -111,7 +109,6 @@
             
             let lines = text.split('\n');
             let isMobile = w < 600;
-            
             let maxLen = Math.max(...lines.map(l => l.length));
             let maxWSize = (w * 0.9) / maxLen; 
             let maxHSize = (h * 0.7) / lines.length; 
@@ -124,9 +121,7 @@
             oCtx.textAlign = "center"; oCtx.textBaseline = "middle";
             
             let startY = h / 2 - (lines.length - 1) * (fontSize * 1.2) / 2;
-            lines.forEach((line, i) => {
-                oCtx.fillText(line, w / 2, startY + i * (fontSize * 1.2));
-            });
+            lines.forEach((line, i) => { oCtx.fillText(line, w / 2, startY + i * (fontSize * 1.2)); });
 
             let imageData = oCtx.getImageData(0, 0, w, h).data;
             let coordinates = [];
@@ -157,36 +152,29 @@
         }
 
         function explodeAll() { particles.forEach(p => p.explode()); }
+        
         function animateParticles() {
             tCtx.clearRect(0, 0, w, h);
             particles.forEach(p => { p.update(); p.draw(); });
             requestAnimationFrame(animateParticles);
         }
 
-        // ==========================================
-        // 核心时间轴 (已延长停顿和展示时间)
-        // ==========================================
         function startParticleSequence() {
             animateParticles();
-            
             const sequence = [
-                { text: "3", duration: 1500 }, // 倒计时展示 1.5秒
+                { text: "3", duration: 1500 },
                 { text: "2", duration: 1500 },
                 { text: "1", duration: 1500 },
-                { text: "2026\n新年快乐", duration: 4000 }, // 主祝福 4秒
-                { text: "二零二六\n新年到", duration: 3500 }, // 每句祝福语 3.5秒
+                { text: "2026\n新年快乐", duration: 4000 },
+                { text: "二零二六\n新年到", duration: 3500 },
                 { text: "吉星高照\n福星绕", duration: 3500 },
                 { text: "彩色烟花\n满天飘", duration: 3500 },
                 { text: "岁岁平安\n步步高", duration: 999999 } 
             ];
-
             let step = 0;
-
             function nextStep() {
                 if (step >= sequence.length) return;
                 if (step > 0) explodeAll();
-
-                // 倒计时之间的停顿增加到 1.5秒
                 let isCountdown = step <= 3;
                 let pauseTime = step === 0 ? 0 : (isCountdown ? 1500 : 600);
 
@@ -194,16 +182,14 @@
                     changeText(sequence[step].text);
                     let currentDuration = sequence[step].duration;
                     step++;
-                    if (step < sequence.length) {
-                        setTimeout(nextStep, currentDuration);
-                    }
+                    if (step < sequence.length) setTimeout(nextStep, currentDuration);
                 }, pauseTime); 
             }
             nextStep(); 
         }
 
         // ==========================================
-        // 2. 背景特效 (烟花 + 全新写实孔明灯)
+        // 2. 背景特效 (烟花 + 墨字写实孔明灯)
         // ==========================================
         const fCanvas = document.getElementById('fireworksCanvas');
         const fCtx = fCanvas.getContext('2d');
@@ -214,14 +200,11 @@
 
         class Firework {
             constructor() {
-                this.x = Math.random() * fCanvas.width;
-                this.y = fCanvas.height;
-                this.tx = Math.random() * fCanvas.width;
-                this.ty = Math.random() * (fCanvas.height / 2); 
+                this.x = Math.random() * fCanvas.width; this.y = fCanvas.height;
+                this.tx = Math.random() * fCanvas.width; this.ty = Math.random() * (fCanvas.height / 2); 
                 this.speed = Math.random() * 3 + 4;
                 this.angle = Math.atan2(this.ty - this.y, this.tx - this.x);
-                this.vx = Math.cos(this.angle) * this.speed;
-                this.vy = Math.sin(this.angle) * this.speed;
+                this.vx = Math.cos(this.angle) * this.speed; this.vy = Math.sin(this.angle) * this.speed;
                 this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
                 this.history = [];
             }
@@ -229,9 +212,7 @@
                 this.history.push({x: this.x, y: this.y});
                 if(this.history.length > 5) this.history.shift();
                 this.x += this.vx; this.y += this.vy;
-                if (this.vy >= 0 || this.y <= this.ty) {
-                    fireworks.splice(index, 1); this.explode();
-                }
+                if (this.vy >= 0 || this.y <= this.ty) { fireworks.splice(index, 1); this.explode(); }
             }
             draw() {
                 fCtx.beginPath();
@@ -241,15 +222,14 @@
             }
             explode() {
                 let count = Math.random() * 50 + 50;
-                for (let i = 0; i < count; i++) { fwParticles.push(new FwParticle(this.x, this.y, this.color)); }
+                for (let i = 0; i < count; i++) fwParticles.push(new FwParticle(this.x, this.y, this.color));
             }
         }
 
         class FwParticle {
             constructor(x, y, color) {
                 this.x = x; this.y = y; this.color = color;
-                let angle = Math.random() * Math.PI * 2;
-                let speed = Math.random() * 5 + 1;
+                let angle = Math.random() * Math.PI * 2; let speed = Math.random() * 5 + 1;
                 this.vx = Math.cos(angle) * speed; this.vy = Math.sin(angle) * speed;
                 this.friction = 0.95; this.gravity = 0.1;
                 this.alpha = 1; this.decay = Math.random() * 0.015 + 0.015;
@@ -260,28 +240,39 @@
                 this.alpha -= this.decay; if (this.alpha <= 0) fwParticles.splice(index, 1);
             }
             draw() {
-                fCtx.globalAlpha = this.alpha;
-                fCtx.beginPath();
+                fCtx.globalAlpha = this.alpha; fCtx.beginPath();
                 fCtx.arc(this.x, this.y, 2, 0, Math.PI * 2);
                 fCtx.fillStyle = this.color; fCtx.fill(); fCtx.globalAlpha = 1;
             }
         }
 
-        // 全新：写实孔明灯类
+        // 全新：带毛笔字的孔明灯类
         class Lantern {
             constructor() {
                 this.x = Math.random() * fCanvas.width;
-                this.y = fCanvas.height + 50;
-                this.width = Math.random() * 20 + 15; // 孔明灯宽度
-                this.height = this.width * 1.4; // 孔明灯高度
+                this.y = fCanvas.height + 80;
+                
+                // 让尺寸差异更大，模拟空间纵深感 (15 ~ 55)
+                this.width = Math.random() * 40 + 15; 
+                this.height = this.width * 1.4; 
                 this.vx = (Math.random() - 0.5) * 0.3;
-                this.vy = -(Math.random() * 1 + 0.8); // 上升速度
+                
+                // 大灯飞得慢，小灯飞得快 (视差效果)
+                this.vy = -(Math.random() * 0.8 + 0.5) * (30 / this.width); 
+                
                 this.wobble = Math.random() * Math.PI * 2;
                 this.wobbleSpeed = Math.random() * 0.03 + 0.01;
-                // 模拟火焰闪烁
                 this.flickerBase = Math.random() > 0.5 ? 255 : 200;
                 this.flickerSpeed = Math.random() * 0.1 + 0.05;
                 this.flickerState = Math.random() * Math.PI * 2;
+
+                // 核心：只有视角足够近（宽度大于35）的孔明灯才会被写上字
+                if (this.width > 35) {
+                    const blessings = ["平安", "喜乐", "健康", "暴富", "顺遂", "如意", "好运", "发财", "幸福"];
+                    this.text = blessings[Math.floor(Math.random() * blessings.length)];
+                } else {
+                    this.text = "";
+                }
             }
             update(index) {
                 this.wobble += this.wobbleSpeed;
@@ -291,35 +282,52 @@
                 if (this.y < -this.height) lanterns.splice(index, 1);
             }
             draw() {
-                // 计算闪烁的暖色调
                 let flickerVal = this.flickerBase + Math.sin(this.flickerState) * 55;
                 let color = `rgba(255, ${flickerVal}, 0, 0.9)`;
-                let glowColor = `rgba(255, ${flickerVal - 50}, 50, 0.4)`;
 
                 fCtx.save();
                 fCtx.translate(this.x, this.y);
+                
                 // 绘制发光效果
                 fCtx.shadowBlur = 30; fCtx.shadowColor = color;
                 
                 // 绘制灯体 (梯形)
                 fCtx.beginPath();
-                fCtx.moveTo(-this.width / 2, -this.height / 2); // 左上
-                fCtx.lineTo(this.width / 2, -this.height / 2);  // 右上
-                fCtx.lineTo(this.width * 0.4, this.height / 2); // 右下（收窄）
-                fCtx.lineTo(-this.width * 0.4, this.height / 2);// 左下（收窄）
+                fCtx.moveTo(-this.width / 2, -this.height / 2); 
+                fCtx.lineTo(this.width / 2, -this.height / 2);  
+                fCtx.lineTo(this.width * 0.4, this.height / 2); 
+                fCtx.lineTo(-this.width * 0.4, this.height / 2);
                 fCtx.closePath();
-                // 渐变填充主体
+                
+                // 渐变填充主体，模拟透光的纸张
                 let grad = fCtx.createLinearGradient(0, -this.height/2, 0, this.height/2);
                 grad.addColorStop(0, 'rgba(255, 240, 200, 0.8)');
                 grad.addColorStop(1, color);
                 fCtx.fillStyle = grad;
                 fCtx.fill();
 
+                // === 绘制黑色祝福毛笔字 ===
+                if (this.text) {
+                    let fontSize = this.width * 0.35; 
+                    // 优先使用偏传统的字体，类似毛笔字
+                    fCtx.font = `bold ${fontSize}px "KaiTi", "STKaiti", "Microsoft YaHei"`; 
+                    fCtx.fillStyle = "rgba(0, 0, 0, 0.75)"; // 黑色带一点点透明，像墨水渗入纸张
+                    fCtx.textAlign = "center";
+                    fCtx.textBaseline = "middle";
+                    fCtx.shadowBlur = 0; // 字体不发光
+                    
+                    // 传统灯笼是竖排写字
+                    if (this.text.length === 2) {
+                        fCtx.fillText(this.text[0], 0, -this.height * 0.15); // 上面的字
+                        fCtx.fillText(this.text[1], 0, this.height * 0.15);  // 下面的字
+                    }
+                }
+
                 // 绘制底部明亮发光口
                 fCtx.beginPath();
                 fCtx.ellipse(0, this.height / 2, this.width * 0.4, this.width * 0.15, 0, 0, Math.PI * 2);
                 fCtx.fillStyle = color;
-                fCtx.shadowBlur = 15; fCtx.shadowColor = '#ffeb3b'; // 底部高亮
+                fCtx.shadowBlur = 15; fCtx.shadowColor = '#ffeb3b'; 
                 fCtx.fill();
                 
                 fCtx.restore();
@@ -331,8 +339,8 @@
                 fCtx.fillStyle = 'rgba(0, 0, 0, 0.2)';
                 fCtx.fillRect(0, 0, fCanvas.width, fCanvas.height);
                 if (Math.random() < 0.05) fireworks.push(new Firework());
-                // 增加孔明灯生成概率
-                if (Math.random() < 0.03) lanterns.push(new Lantern());
+                // 稍微提高一点生成概率，确保画面丰满
+                if (Math.random() < 0.04) lanterns.push(new Lantern());
 
                 fireworks.forEach((fw, i) => { fw.update(i); fw.draw(); });
                 fwParticles.forEach((p, i) => { p.update(i); p.draw(); });
